@@ -1,0 +1,101 @@
+* * *
+
+# SimpleRTApp: Consumo de API REST en iOS Swift con Alamofire+Codable
+
+Este artículo forma parte de una serie que pretende construir un sistema para enviar notificaciones de artículos relevantes de Twitter, con el objetivo de que sean retuiteados fácilmente. [Acá](https://medium.com/@federicojordn/c%C3%B3mo-obtener-twitts-relevantes-en-una-app-de-ios-con-heroku-nodejs-swift-4c4aca1f42b2) se encuentra el artículo completo.
+
+En esta ocasión, construiremos la capa de networking necesaria en la app iOS para poder consumir nuestra API REST, realizada en [artículos anteriores](https://medium.com/@federicojordn/simplertapp-estructura-b%C3%A1sica-de-una-api-rest-en-node-js-64b4c413c85c). Para ello, nos valdremos de dos herramientas: Alamofire y el protocolo Codable, de Apple.
+
+#### Requerimientos
+
+Es necesario tener conocimiento de lenguaje Swift y herramientas básicas de desarrollo iOS. Además, tambien se requiere conocer el protocolo REST para consumo de APIs.
+
+#### Acerca de Alamofire y Codable
+
+[Alamofire](https://github.com/Alamofire/Alamofire) es una biblioteca creada por [@mattt](https://twitter.com/mattt) con el objetivo de facilitar la interacción de una App iOS con servicios HTTP. Esta escrita en Swift y es la más utilizada hoy en día en la plataforma.
+
+Lo elegimos por su extenso uso por la comunidad, su valoración en GitHub (actualmente tiene un poco más de 29000 estrellas) y su adaptabilidad a diferentes requisitos. además de su gran frecuencia de actualización.
+
+Por su parte, [Codable](https://developer.apple.com/documentation/swift/codable) es una herramienta nativa de Apple para permitir que nuestros tipos de datos sean encodeables o decodeables para la compatilibidad con datos externos, como podría ser JSON.
+
+### Construcción de nuestro primer request
+
+Vamos a ver los pasos para construir una networking layer básica para cualquier aplicación. Es importante tener en cuenta, que siempre se puede profundizar el concepto, por lo que para este artículo se priorizará explicar el funcionamiento de la biblioteca y tener una networking funcional.
+
+_Es importante que deshabilitemos Transport Security en nuestro Info.plist, ya que por ahora no usaremos conexiones seguras (no HTTPS)._ [_Más información_](https://stackoverflow.com/questions/31254725/transport-security-has-blocked-a-cleartext-http)
+
+1.  Instalamos Alamofire agregando en nuestro Podfile `pod 'Alamofire', '~> 4.7'`, luego procedemos a hacer `pod install` en la terminal.
+2.  Abrimos el workspace y creamos un archivo llamado `TweetRequest.swift` con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/d5219716595a8049de5e990c077f3994?postId=21d8ffc019c1" data-media-id="d5219716595a8049de5e990c077f3994" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Este será el objeto que obtendremos de nuestra request. Usando el protocolo `Codable` y especificando cada `CodingKey` podremos indicar de que campos del JSON queremos obtener cada variable.
+
+3\. Creamos una clase llamada `NetworkManager`, la cual tendrá el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/25717be81111b54b185b83bca98d0a46?postId=21d8ffc019c1" data-media-id="25717be81111b54b185b83bca98d0a46" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En este caso, definimos un método llamado `getTweetRequest(byId id: String, completion: (TweetRequest?) -> Void)` el cual hará el request correspondiente a nuestro entorno local `localhost` y, si ese `TweetRequest` para ese `id` está disponible, obtendremos sus datos. En caso contrario, el método llamará al bloque `completion` con el valor `nil`.
+
+4\. A modo de prueba, realizamos el request en `ApplicationDelegate.swift` en el método `didFinishLaunching` de la siguiente forma:
+
+<pre name="e862" id="e862" class="graf graf--pre graf-after--p">let networkManager = NetworkManager()
+networkManager.getTweetRequest(byId: “4”) { (tweetRequest) in
+    print(tweetRequest)
+}</pre>
+
+Esto nos debería imprimir en consola el siguiente log:
+
+<pre name="b8fb" id="b8fb" class="graf graf--pre graf-after--p">Optional(SimpleRTApp.TweetRequest(tweetRequestId: Optional(4), deviceToken: Optional(“ExampleDeviceToken”), hashtags: Optional(“#Example #hashtags”)))</pre>
+
+Con esto ya hemos creado nuestro primer request GET con Alamofire y Codable :)
+
+### Full networking layer para SimpleRTApp
+
+Con los pasos anteriores, ya tenemos el `GET /tweetRequest/:id` que nos permitirá ver los hashtags actuales para el usuario. Nos falta entonces, crear los request para los siguientes endpoints:
+
+*   `POST /tweetRequest` para indicarle al backend acerca que hashtags quiero tener notificaciones
+*   `DELETE /tweetRequest/:id` para eliminar las notificaciones para ciertos hashtag
+*   `POST /postwedTweet` para indicarle al backend que tweet fue posteado (y no lo sugiera posteriormente)
+
+Ordenando un poco los endpoints y los parámetros necesarios, nuestra clase `NetworkManager` entonces podría quedar de la siguiente forma:
+
+<iframe width="700" height="250" src="/media/061f141529f0e06b133d6fa38dd718bf?postId=21d8ffc019c1" data-media-id="061f141529f0e06b133d6fa38dd718bf" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Algunos puntos a destacar:
+
+*   Agregamos un enum llamado `NetworkPath`, mediante el cual obtenemos la URL completa para cada path que podamos utilizar. De esta forma tenemos en un sólo lugar todas las url que usa el proyecto. Algo que se podría haber hecho es incluir y reemplazar el id (tanto de `TweetRequest` o de `PostedTweet`) pero decidí hacerlo básico por el momento
+*   Agregamos un struct llamado `NetworkParameter`, en el cual tendremos todos los parámetros utilizados por algun request. También se podría haber utilizado un enum, y de alguna forma restringir los parámetros que podamos aceptar (hacer alguna magia para que solo podamos usar algún valor de ese enum) pero decidí mantenerlo simple también.
+*   Como los otros métodos no son de tipo GET, que es el método por defecto, tenemos que aclararlo en el parámetro `method` de `Alamofire.request`. Aclaramos que son tanto de tipo `.post` como `.delete`.
+*   En el caso de los request de tipo POST se tienen que agregar también los parámetros que requiere (el body de la request). Esto se hace especificando un dictionary de tipo `[String: Any]` al parámetro `parameters` de `Alamofire.request`.
+*   Por último, como los requests que nos faltaban no devuelven nada en el response, simplemente informamos el estado de `response.result.isSuccess` a través del `completion`, en caso que se requiera tomar una acción si el request falló.
+
+Si bien no lo requerimos, también podemos crear el struct de `PostedTweet`, el otro modelo que nos faltaba agregar:
+
+<iframe width="700" height="250" src="/media/6060f8c97ffd1887c38cae1d09da0a84?postId=21d8ffc019c1" data-media-id="6060f8c97ffd1887c38cae1d09da0a84" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Nos quedará como tarea realizar la debida implementación de estos requests. Pueden ver el código final en [https://github.com/fedejordan/SimpleRTApp](https://github.com/fedejordan/SimpleRTApp), tag `basic_networking`.
+
+Es importante aclarar que el server debe estar andando en nuestra máquina local (`node server.js` en terminal). [Más información acá](https://medium.com/@federicojordn/simplertapp-estructura-b%C3%A1sica-de-una-api-rest-en-node-js-64b4c413c85c)
+
+#### Mejoras
+
+Nuestra capa de networking básica se puede mejorar sustancialmente. En principio, acoplar todas las llamadas en la misma clase no es escalable. Una mejor solución podría ser tener clases por cada tipo de request y tener ya definidos en su método `init` que parámetros acepta. De esta forma, si nuestra request cambia solo tendremos que modificar los parametros de dicha clase.
+
+Además, si queremos testear nuestra implementación, deberíamos [mockear](https://es.wikipedia.org/wiki/Objeto_simulado) las respuestas de alguna forma. De momento, no es posible con la solución actual.
+
+En otro artículo más adelante, voy a realizar la implementación de una capa de networking mucho más completa, escalable y testeable. En este artículo solo quise cubrir el uso básico de la biblioteca.
+
+### Conclusiones
+
+Aprendimos como usar capaz el framework más utilizado para networking de iOS, Alamofire. Tambien, cómo combinarlo con el protocolo Codeable de Apple para parsear nuestros datos de la forma más eficiente. Definimos nuestros objetos para poder parsearlos correctamente, y podamos acceder a sus propiedades en la app sin mucho problema.
+
+Nuestra capa de networking básica nos sirve para separar la logica de APIs en nuestra app en un módulo aparte, y tener un poco más organizada nuestra arquitectura de proyecto.
+
+¡Muchas gracias por leer el artículo!
+
+#### Fuentes
+
+*   [https://medium.com/xcblog/painless-json-parsing-with-swift-codable-2c0beaeb21c1](https://medium.com/xcblog/painless-json-parsing-with-swift-codable-2c0beaeb21c1)
+*   [https://github.com/Alamofire/Alamofire](https://github.com/Alamofire/Alamofire)
+*   [https://github.com/Alamofire/Alamofire/blob/master/Documentation/Usage.md#making-a-request](https://github.com/Alamofire/Alamofire/blob/master/Documentation/Usage.md#making-a-request)

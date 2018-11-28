@@ -1,0 +1,207 @@
+* * *
+
+# SimpleRTApp: Estructura básica de una API REST en Node.js
+
+Esta es la tercer parte de una serie de artículos destinados a desarrollar un sistema muy simple, en el cual se le envíen notificaciones al usuario sobre tweets con hashtags relevantes cada cierto tiempo definido. [Acá](https://medium.com/@federicojordn/c%C3%B3mo-obtener-twitts-relevantes-en-una-app-de-ios-con-heroku-nodejs-swift-4c4aca1f42b2) está la lista completa.
+
+En esta oportunidad, vamos a ver como estructurar una API bastante simple en Node.js, que dependencias necesitamos para nuestro proyecto, y que recursos debemos de proveer a la app mobile para poder operar con una DB hecha en MySQL.
+
+Por mi parte, voy a tratar de ser lo más simple posible, ya que el escribir este artículo tambien será un proceso de aprendizaje para mi :)
+
+#### Conceptos
+
+Vamos a ver lo siguiente:
+
+*   Qué es una API REST y cómo funciona
+*   Setup básico de un server en ambiente local
+*   Routing de servicios
+*   Capa de controlador
+
+### ¿Qué es una API REST?
+
+REST es un acrónimo de Representational State Transfer. Es un estándar web para arquitectura y protocolo HTTP. La arquitectura REST describe seis restricciones que fueron originalmente comunicadas por Roy Fielding en su tesis doctoral y define la base del estilo RESTful con lo siguiente:
+
+*   Interfaz uniforma
+*   Sin estados
+*   Cacheable
+*   Comunicación cliente-servidor
+*   Sistema de capas
+*   Código en demanda (opcional)
+
+Las aplicaciones RESTful usan requests HTTP para realizar operaciones de tipo CRUD (C: create, R:read, U:update y D: delete). Create y/o Update se utilizan para postear data, Read para leer o enlistar datos y Delete para eliminar.
+
+### Setup de un server local en Node.js
+
+1.  Creamos una carpeta donde tendremos la API. En nuestro caso sera `SimpleRTAppAPI`. Para ello hacemos `mkdir SimpleRTAppAPI` en la aplicación de Terminal. Nos situamos en la carpeta con `cd SimpleRTAppAPI`.
+2.  Creamos un archivo `package.json` con el comando `npm init`. Esto nos permitirá identificar al proyecto además de ver las dependencias que necesita. Indicamos valores como package name (`simplertappapi`), autor, descripción, versión, archivo de entrada (será `index.json` en nuestro caso) y demás campos.
+
+<pre name="58d5" id="58d5" class="graf graf--pre graf-after--li">SimpleRTAppAPI federicojordan$ npm init
+This utility will walk you through creating a package.json file.
+It only covers the most common items, and tries to guess sensible defaults.</pre>
+
+<pre name="4b40" id="4b40" class="graf graf--pre graf-after--pre">See `npm help json` for definitive documentation on these fields
+and exactly what they do.</pre>
+
+<pre name="711d" id="711d" class="graf graf--pre graf-after--pre">Use `npm install <pkg>` afterwards to install a package and
+save it as a dependency in the package.json file.</pre>
+
+<pre name="584e" id="584e" class="graf graf--pre graf-after--pre">Press ^C at any time to quit.
+package name: (simplertappapi) 
+version: (1.0.0) 
+keywords: 
+author: 
+license: (ISC) 
+About to write to /Users/federicojordan/Blog/SimpleRTAppAPI/package.json:</pre>
+
+<pre name="6e74" id="6e74" class="graf graf--pre graf-after--pre">{
+ “name”: “simplertappapi”,
+ “version”: “1.0.0”,
+ “description”: “Simple API to trigger relevant tweets in push notifications”,
+ “main”: “index.js”,
+ “dependencies”: {
+ “dotenv”: “⁵.0.0”,
+ “twitter”: “¹.7.1”
+ },
+ “devDependencies”: {},
+ “scripts”: {
+ “test”: “echo \”Error: no test specified\” && exit 1"
+ },
+ “repository”: {
+ “type”: “git”,
+ “url”: “git+https://github.com/fedejordan/SimpleRTAppAPI.git"
+ },
+ “author”: “”,
+ “license”: “ISC”,
+ “bugs”: {
+ “url”: “https://github.com/fedejordan/SimpleRTAppAPI/issues"
+ },
+ “homepage”: “https://github.com/fedejordan/SimpleRTAppAPI#readme"
+}
+
+</pre>
+
+<pre name="1861" id="1861" class="graf graf--pre graf-after--pre">Is this ok? (yes)</pre>
+
+Comprobamos que los datos sean correctos y damos enter para confirmar la creación del archivo.
+
+3\. Instalamos el package `express` mediante el comando `npm install express --save`. Esta dependencia nos permitirá crear el servidor y escuchar solicitudes HTTP.
+
+4\. Creamos un archivo `server.js` con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/edb3c1f0f91df8db56b92e87e5848eff?postId=64b4c413c85c" data-media-id="edb3c1f0f91df8db56b92e87e5848eff" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+5\. Hacemos `node server.js` en la terminal y ya deberíamos ver nuestro primer servidor haciendo escuchas en el puerto 3000\. Podemos cambiar el puerto de escucha también usando una variable de entorno `PORT` en nuestro archivo de configuración `.env`.
+
+<pre name="8d96" id="8d96" class="graf graf--pre graf-after--p">SimpleRTAppAPI federicojordan$ node server.js 
+SimpleRTAppAPI server started on: 3000</pre>
+
+### Realización de la API para SimpleRTApp
+
+Vamos a comenzar a escribir los endpoints necesarios para SimpleRTApp. Como todavía no seteamos la base de datos, vamos a usar datos en memoria con propósitos de aprendizaje. Esto significa que si nuestro server se reinicia, se perderán todos los datos modificados desde que se lanzó.
+
+#### Endpoints a realizar
+
+1.  **Consulta de hashtags para un device_token:** Es necesario tener la posibildad de saber que hashtags le corresponden a cierto device_token, en caso que el usuario abra la app nuevamente.
+2.  **Guardado de un device_token asociado a ciertos hashtags**: Cuando el usuario decide de que hashtags quiere ser informado, se llamara a este recurso para guardar en la base de datos los hashtags para su diceToken
+3.  **Eliminación de un device_token**: En caso de que el usuario quiera desuscribirse a las notificaciones, simplemente se deberá llamar a este endpoint para remover su deviceToken de la base de datos.
+4.  **Guardado de id de tweet posteado**: Es importante también, guardar los tweets que fueron posteados por el usuario gracias a la app, de forma que la siguiente vez que se notifique no se repita el tweet ya posteado.
+
+#### Routing layer
+
+La capa de routing se refiere a como una aplicación responde a una request de un cliente para un determinado endpoint, es decir, para una ruta específica y para un método HTTP determinado (GET, POST, DELETE, etc).
+
+En nuestro caso vamos a tener 4 routings, que se corresponden con el número de endpoints descriptos arriba.
+
+#### Controller layer
+
+Se encarga de realizar la lógica necesaria para cumplir con el request solicitado. La capa de controller tiene el acceso a los modelos, y puede agregar, modificar, eliminar, consultar según se explicite. Se accede mediante una ruta definida en la capa de routing.
+
+Nuestros controllers tendrán la lógica para guardar device_token con hashtags, eliminar device_token, guardar el id de tweet posteado y consultar hashtags para un device_token espécifico.
+
+Vamos a comenzar con el endpoint más sencillo, consultar hashtags para un device_token.
+
+#### Primer endpoint: Consulta de hashtags
+
+1.  Creamos un archivo `tweetRequestRoutes.js` en la carpeta `api/routes` con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/7377657882c8194cfa20e7a2b0d3d0b6?postId=64b4c413c85c" data-media-id="7377657882c8194cfa20e7a2b0d3d0b6" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Esto nos indica que para la ruta `/tweetRequest` vamos a estar esperando una request de tipo `GET` con un parámetro de tipo `tweetRequestId`. Por su parte, `tweetRequestController` tendrá la lógica de devolver el dato buscado en su función `getTweetRequest`.
+
+2\. Creamos un archivo `tweetRequestController.js` en la carpeta `api/controllers` con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/1bda77ca813f38477961b1922b532615?postId=64b4c413c85c" data-media-id="1bda77ca813f38477961b1922b532615" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En este caso exportamos la función `getTweetRequest` para que pueda ser usada por el `tweetRequestRoutes.js`. Buscamos el objeto `tweetRequest` en el array que creamos más abajo y lo devolvemos en formato JSON.
+
+3\. Actualizamos nuestro archivo `server.js` para que pueda manejar la ruta necesaria y devuelva una respuesta HTTP:
+
+<iframe width="700" height="250" src="/media/1134e7b35f15719778b73b93db88f04f?postId=64b4c413c85c" data-media-id="1134e7b35f15719778b73b93db88f04f" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+De esta forma configuramos el server para que acepte URL encoded y maneje respuestas de tipo JSON. Además, delegamos el routing a `tweetRequestRoutes`.
+
+4\. Hacemos `node server.j`en la carpeta root del proyecto, abrimos Postman y probamos hacer un GET a `http://localhost:3000/tweetRequest/1`
+
+![](https://cdn-images-1.medium.com/max/1600/1*DIBoxvx-TEHamwuGcxr8Zg.png)
+
+Si probamos con otro `tweetRequestId` debería darnos sus campos, siempre y cuando lo hayamos definido en el array.
+
+Si probamos con otro id, o cambiamos el método HTTP (por un POST, por ejemplo), o cambiamos la ruta debería darnos error. Más adelante deberíamos definir devolver HTTP error codes para que el cliente pueda manejar el error correctamente.
+
+### Código final
+
+Una vez que entendimos a grandes rasgos como funciona el proceso, podemos lanzarnos a hacer los otros endpoints.
+
+Nuestro código debería quedar mas o menos parecido a lo siguiente:
+
+<iframe width="700" height="250" src="/media/2751e7f2c0174c19b1564ed7efc0e495?postId=64b4c413c85c" data-media-id="2751e7f2c0174c19b1564ed7efc0e495" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En `server.js` agregamos otro archivo de routing para la entidad `PostedTweet`, la cual nos indicará si un tweet ya fue posteado por parte de un usuario.
+
+<iframe width="700" height="250" src="/media/dcb4404f9d62c71f1ab2cadf2a90f2d7?postId=64b4c413c85c" data-media-id="dcb4404f9d62c71f1ab2cadf2a90f2d7" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Agregamos la posibilidad de crear `TweetRequest` mediante el método `POST` y creando una función `createTweetRequest` en `tweetRequestController.js`. Además, hicimos el endpoint de borrar `TweetRequest`s mediante el método `DELETE`, el cual el routing redirecciona a la función `deleteTweetRequest`.
+
+<iframe width="700" height="250" src="/media/644adc6f4c5fc5e847220ac738b91531?postId=64b4c413c85c" data-media-id="644adc6f4c5fc5e847220ac738b91531" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En `tweetRequestController.js` agregamos las siguientes funciones:
+
+*   `createTweetRequest`: Se obtiene el máximo valor de `id` en el array `tweetRequests`, se crea el objeto JSON con ese valor incrementado, los valores de `req.body.device_token` y `req.body.hashtags` y se agrega al array en memoria.
+*   `deleteTweetRequest`: se elimina el `TweetRequest` con la función `filter` y se obtiene como respuesta el total del array.
+
+Agregamos además dos archivos: `postedTweetRoutes.js` y `postedTweetController.js`:
+
+<iframe width="700" height="250" src="/media/294c587c6f9ef301af0b8a0764940440?postId=64b4c413c85c" data-media-id="294c587c6f9ef301af0b8a0764940440" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Creamos un método POST el cual estará asociado a la función `createdPostedTweet` de `postedTweetController`. Esto nos servirá para indicar que tweet ya han sido posteados por el usuario.
+
+<iframe width="700" height="250" src="/media/3374e1e79b761a5fa4a7314340b8c6ec?postId=64b4c413c85c" data-media-id="3374e1e79b761a5fa4a7314340b8c6ec" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En el caso del controller la función `createdPostedTweet` crea los `PostedTweet` a partir del último `id` que encuentra en el array `postedTweets` (si no encuentra usa 1 como primer `id`) y usa los valores `req.body.tweet_request_id` y `req.body.tweet_id` para crear objeto de tipo JSON e insertarlo en el array. Como respuesta devuelve todo el array para asegurarnos de que fue insertado.
+
+Recomiendo probar los diferentes endpoints con Postman para asegurar de que todo funciona según lo esperado.
+
+Pueden encontrar el código completo en [https://github.com/fedejordan/SimpleRTAppAPI,](https://github.com/fedejordan/SimpleRTAppAPI) tag `rest_api`.
+
+### Conclusiones
+
+Aprendimos qué es una API REST y cómo nos puede ser útil en nuestro proyecto, cómo una correcta definición de los servicios web es la pieza fundamental para entender la arquitectura de nuestro sistema.
+
+Creamos un server básico para ver cuáles son los pasos mínimos de instalación y que dependencias necesita.
+
+Tuvimos que ver que entidades usamos, que recursos necesitamos, y como separamos la lógica en las capas de routing y controllers.
+
+Espero que hayan disfrutado el artículo. Seguramente no será lo más performante del mundo, pero creo que es un primer paso para enteder como funciona la estructura de una API mínima.
+
+En el siguiente artículo vamos a ver como interactuar realmente con una base de datos MySQL y hacer el setup necesario en ambiente local de la misma.
+
+Cualquier consulta, sugerencia o duda pueden dejar un comentario o enviarme un mail a fedejordan99@gmail.com
+
+¡Muchas gracias!
+
+#### Fuentes
+
+*   [https://www.codementor.io/olatundegaruba/nodejs-restful-apis-in-10-minutes-q0sgsfhbd](https://www.codementor.io/olatundegaruba/nodejs-restful-apis-in-10-minutes-q0sgsfhbd)
+*   [http://thejackalofjavascript.com/architecting-a-restful-node-js-app/](http://thejackalofjavascript.com/architecting-a-restful-node-js-app/)
+*   [http://expressjs.com/en/api.html](http://expressjs.com/en/api.html)
+*   [https://www.w3schools.com/jsref/jsref_tostring_number.asp](https://www.w3schools.com/jsref/jsref_tostring_number.asp)

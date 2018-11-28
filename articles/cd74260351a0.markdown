@@ -1,0 +1,169 @@
+* * *
+
+# Bash script para mostrar todos los snapshots en un HTML (iOSSnapshotTestCase + Bash + HTML/CSS)
+
+![](https://cdn-images-1.medium.com/max/1600/1*sA-U55DRna_xhYzUUbiOlQ.png)Photographer robot
+
+### Introducción
+
+Siempre es bueno automatizar. Y si lo combinamos con herramientas que ya nos ayudan en el día a día podemos ahorrrarnos mucho trabajo y facilitar la vida de los demás.
+
+En este post vamos a ver como generar un archivo HTML con todos los snapshots de un proyecto iOS. Los mismos van a ser generados con [iOSSnapshotTestCase](https://github.com/uber/ios-snapshot-test-case).
+
+### Requerimientos
+
+1.  Tener un proyecto iOS con [iOSSnapshotTestCase integrado y funcionando.](https://medium.com/@federicojordn/c%C3%B3mo-hacer-ui-testing-en-ios-con-fbsnapshottestcase-12e9641df97) Escribí un artículo sobre como usarlo, [más información acá](https://medium.com/@federicojordn/c%C3%B3mo-hacer-ui-testing-en-ios-con-fbsnapshottestcase-12e9641df97).
+2.  Tener conocimientos mínimos de [Bash scripting](https://ryanstutorials.net/bash-scripting-tutorial/bash-script.php)
+
+### Procedimiento
+
+#### Descargando el proyecto de ejemplo
+
+Como es un requisito tener el proyecto ya integrado con snapshots, vamos a usar un proyecto de ejemplo que yo mismo cree. Para ello hacemos:
+
+`git clone https://github.com/fedejordan/SnapshotsHTMLExample`
+
+Podemos ver que los pods ya estan descargados (los subi al proyecto para descargarlos más rápido) y además tenemos algunos snapshots generados para los siguientes devices: iPhone SE, iPhone 8, iPhone 8 Plus, iPhone XR y iPhone XS y iPhone XS Max.
+
+![](https://cdn-images-1.medium.com/max/1600/1*GWhstAjtcGeqwG_jM2_iwA.png)Snapshots ya generados
+
+Algo para recordar, para tener diferentes snapshots, en el método `setUp()` está puesta la siguiente línea:
+
+`agnosticOptions = FBSnapshotTestCaseAgnosticOption.screenSize`
+
+Esto generó archivos PNG con la resolución dentro del filename.
+
+#### Creando el archivo de script
+
+Primero creamos un archivo llamado `create_snapshots_html.sh` dentro de la misma carpeta donde se encuentra el .xcworkspace, con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/494d03778c773ca5ea2d4bd8ebe28f4e?postId=cd74260351a0" data-media-id="494d03778c773ca5ea2d4bd8ebe28f4e" allowfullscreen="" frameborder="0"></iframe>
+
+Guardamos, y en la aplicación de la terminal ejecutamos el siguiente comando:
+
+`sh create_snapshots_html.sh`
+
+Lo que imprimirá el siguiente resultado:
+
+<pre name="e229" id="e229" class="graf graf--pre graf-after--p">federico$ sh create_snapshots_html.sh 
+Hello, I’m a script!</pre>
+
+Basicamente, el comando `echo` lo que hace es imprimir una cadena de caracteres.
+
+#### Tareas a ejecutar en el script
+
+Vamos a repasar la lista de tareas que tenemos que hacer para poder generar el archivo HTML:
+
+1.  Obtener todos los subdirectorios donde hay archivos de snapshot. En nuestro caso va a ser solo uno, `SnapshotsHTMLExampleTests.SnapshotsHTMLExampleTests.`Esto es así ya que el formato es [Target].[NombreArchivoDeTests]
+2.  Crear el archivo HTML, con sus correspondientes HTML tags
+3.  Iterar sobre la lista de subdirectorios obtenidas en el paso 1 y obtener una lista de todos los archivos PNGs que contiene
+4.  Iterar sobre esa lista de archivos PNG y crear el código HTML correspondiente para mostrar un tag `<img>` con el source del filepath completo. Agregar ese código HTML parcial al archivo HTML creado anteriormente.
+5.  Una vez ya iteradas todas las imágenes, cerramos el HTML asi queda listo para ser visto en el browser.
+6.  Abrir el archivo HTML generado.
+
+Vamos a ver paso a paso viendo la salida que genera cada uno.
+
+#### Obtener subdirectorios
+
+Cambiamos el contenido de `create_snapshots_html.sh` por el siguiente:
+
+<iframe width="700" height="250" src="/media/9aec66d7ef7d36a5b451cb4767449ac5?postId=cd74260351a0" data-media-id="9aec66d7ef7d36a5b451cb4767449ac5" allowfullscreen="" frameborder="0"></iframe>
+
+1.  Creamos dos variables `SNAPSHOTS_DIR` y `TEST_TARGET` con la ruta de las imágenes y el nombre del test target respectivamente.
+2.  Abajo, agregamos un comentario indicando que es lo que vamos a hacer e imprimimos un texto indicando lo que se está haciendo.
+3.  En la variable `SNAPSHOT_SUBDIRECTORIES` usamos los comandos `find`, `sort` y `awk` para buscar, ordenar y filtrar las carpetas de cada archivo de test que tengamos (en nuestro caso, sería una sola: `SnapshotsHTMLExampleTests.SnapshotsHTMLExampleTests`)
+4.  Por último, iteramos sobre `$SNAPSHOT_SUBDIRECTORIES` para obtener una lista con las carpetas (en nuestro caso, tendríamos un único valor, `SnapshotsHTMLExampleTests`). Esto lo hacemos para poder separar el archivo HTML en secciones posteriormente.
+
+Podemos probar la salida que generamos agregando `echo $subdirectories` al final del for:
+
+<pre name="0573" id="0573" class="graf graf--pre graf-after--p">federico$ sh create_snapshots_html.sh 
+Getting subdirectories…</pre>
+
+<pre name="7ee1" id="7ee1" class="graf graf--pre graf-after--pre">SnapshotsHTMLExampleTests</pre>
+
+#### Creando el archivo HTML
+
+A lo anterior, le agregamos lo siguiente:
+
+<iframe width="700" height="250" src="/media/4a49c82f289f1b3eca5eab1e5b884484?postId=cd74260351a0" data-media-id="4a49c82f289f1b3eca5eab1e5b884484" allowfullscreen="" frameborder="0"></iframe>
+
+1.  Imprimimos en consola que estamos creando el archivo HTML
+2.  Creamos el archivo `snapshots_preview.html`
+3.  Le agregamos el tag `<html>` y el `<body>`. Lo vamos a cerrar más adelante
+
+Podemos comprobar en la carpeta del proyecto que se creó el archivo. Por ahora, no es un HTML válido.
+
+Si ejecutamos `sh create_snapshots_html.sh` en este momento obtenemos:
+
+<pre name="b054" id="b054" class="graf graf--pre graf-after--p">federico$ sh create_snapshots_html.sh 
+Getting subdirectories…
+Creating HTML file…</pre>
+
+#### Obtener PNGs
+
+Agregamos más abajo el siguiente código (desde Obtaining PNG files):
+
+<iframe width="700" height="250" src="/media/09e88f98f921ef9069a993dab56b60b1?postId=cd74260351a0" data-media-id="09e88f98f921ef9069a993dab56b60b1" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+1.  Imprimimos en pantalla que vamos a iterar sobre los subdirectorios obtenidos anteriormente
+2.  Iteramos sobre el array `subdirectories`
+3.  Obtenemos el completePath para todos los archivos PNG dados un `SNAPSHOTS_DIR` y un `TEST_TARGET`. Imprimos en pantalla el resultado
+4.  Iteramos por cada archivo de snapshot en ese array obtenido.
+5.  Obtenemos el filename, con ayuda del comando `cut`, para luego usar como title en el archivo HTML. Lo imprimimos en pantalla.
+
+Si ejecutamos `sh create_snapshot_html.sh` deberíamos obtener una salida parecida a esta (adjunto imagen para verlo mejor):
+
+![](https://cdn-images-1.medium.com/max/1600/1*cl0Ev1UzW0cGItqImpB-pw.png)Salida con los archivos PNG obtenidos
+
+#### Crear tag `<img>` por cada PNG encontrado
+
+Reemplazamos desde el primer `for` hasta el último `done` con el siguiente código:
+
+<iframe width="700" height="250" src="/media/40b7bf9635a11c5db778cf8118e710ca?postId=cd74260351a0" data-media-id="40b7bf9635a11c5db778cf8118e710ca" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+1.  Por cada subdirectorio encontrado, agregamos un titulo con el tag `<h1>` con el nombre del subdirectorio. Esto nos sirve para agrupar los PNG en sus diferentes grupos de tests (archivos swift de test). Además seteamos el estilo del `<div>` de sección.
+2.  Habiendo encontrado el filepath completo de cada PNG, agregamos un `<div>` con un `<p>` con el filename y un `<img>` con source el filepath de la imagen. Agregamos bordes en los estilos para separar un poco más prolijo todo.
+3.  Cerramos el tag de sección.
+4.  Cerramos el archivo HTML.
+
+Si ejecutamos el script nuevamente, nos debería generar el HTML completo:
+
+![](https://cdn-images-1.medium.com/max/1600/1*5zXzGDJ91ufuSKHJS6UF7A.png)snapshots_preview.html
+
+#### Abrir el archivo HTML creado
+
+Simplemente agregamos lo siguiente al final del archivo:
+
+<pre name="2767" id="2767" class="graf graf--pre graf-after--p"># Open HTML file
+echo “Opening HTML…”
+open snapshots_preview.html</pre>
+
+Imprimimos en pantalla que vamos a abrir el archivo y mediante el comando `open` lo abrimos en nuestro browser predeterminado.
+
+#### Resultados
+
+El script completo quedaría de la siguiente forma:
+
+<iframe width="700" height="250" src="/media/c24ec8df786fc4c3d86635b242223fb9?postId=cd74260351a0" data-media-id="c24ec8df786fc4c3d86635b242223fb9" allowfullscreen="" frameborder="0"></iframe>
+
+Como vemos, no es necesario ser expertos en Bash ni en HTML, con menos de 50 líneas podemos generar un HTML bastante útil si tenemos integrados snapshots en nuestro proyecto.
+
+#### Desafios
+
+*   Hacer más lindo el HTML :P
+*   Iterar sobre subdirectorios (¿Qué pasa si agregamos subcarpetas en los tests?)
+*   Agregar contenido dinámico al HTML. Si tenemos 10000 snapshots, va a ser un poco dificil encontrar el que queramos ver.
+*   Automatizar para que se envíe un mail con el HTML file despues de generarlo
+*   Integrarlo a [fastlane,](https://fastlane.tools/) podría ser el último paso de `fastlane scan`
+
+¡Gracias por leer el artículo!
+
+Seguime en twitter para más artículos :D
+
+[https://twitter.com/FedeJordan90](https://twitter.com/FedeJordan90)
+
+#### Sources
+
+*   [https://www.tldp.org/LDP/abs/html/](https://www.tldp.org/LDP/abs/html/)
+*   [https://github.com/uber/ios-snapshot-test-case](https://github.com/uber/ios-snapshot-test-case)
+*   [https://ryanstutorials.net/bash-scripting-tutorial/bash-script.php](https://ryanstutorials.net/bash-scripting-tutorial/bash-script.php)

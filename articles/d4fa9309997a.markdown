@@ -1,0 +1,214 @@
+* * *
+
+# SimpleRTApp: Setup de MySQL y acceso desde Node.js mediante API REST
+
+Esta es la [cuarta parte](https://medium.com/@federicojordn/c%C3%B3mo-obtener-twitts-relevantes-en-una-app-de-ios-con-heroku-nodejs-swift-4c4aca1f42b2) de una serie de artículos que tiene como objetivo construir un sistema para notificar tweets relevantes y la posibilidad de retuitearlos, en una app iOS.
+
+En este caso vamos a ver cómo configurar la base de datos MySQL y cómo realizar consultas desde Node.js.
+
+#### ¿Qué vamos a ver?
+
+*   Instalación y configuración de MySQL
+*   Creación de tablas y atributos
+*   Script básico en Node.js para conectarse con la BD
+*   Consultas necesarias para SimpleRTApp
+
+#### Requerimientos
+
+Para poder seguir este artículo, es necesario tener un concepto básico sobre tablas relacionales, consultas SQL y tener instalado Node.js en el sistema.
+
+#### ¿Por qué MySQL?
+
+**MySQL**, es un sistema de gestión de base de datos relacional o SGBD. Este gestor de base de datos es multithread y multiusuario, lo que le permite ser utilizado por varias personas al mismo tiempo, e incluso, realizar varias consultas a la vez, lo que lo hace sumamente versátil.
+
+Nació como una iniciativa de **Software Libre** y aún sigue ofreciéndose como tal, para usuarios particulares. Pero si se desea utilizarlo para promover datos en una empresa, se puede comprar una licencia, como un software propietario, que es autoría de la empresa patrocinante (Oracle).
+
+Voy a pasar a comentar algunas ventajas de MySQL como motor de BD:
+
+*   Es fácil de usar
+*   El soporte es accesible siempre y cuando se necesite
+*   Es de código abierto
+*   Es increíblemente barato
+*   Es un estándar de la industria (y sigue siendo bastante popular)
+
+En cambio, también tiene sus desventajas:
+
+*   Tiene algunos inconvenientes de estabilidad
+*   Sufre de poca performance de escabilidad
+*   Su desarrollo no está dirigido por la comunidad
+*   Su funcionalidad es bastante dependiente de add-ons
+*   Los desarrolladores pueden encontrar algunas de sus limitaciones un poco frustrantes.
+
+#### Otras opciones en el mercado
+
+Si bien elegí MySQL para este proyecto, no hay nada que nos impida de usar otras opciones existentes en el mercado. Las más importantes son:
+
+*   MariaDB
+*   PostgreSQL
+*   SQLServer
+*   MongoDB
+
+### Instalación y configuración de MySQL local
+
+1.  Descargamos el paquete `.dmg` en este [link](http://dev.mysql.com/downloads/mysql/). Seguimos los pasos de la instalación, instalando todos los componentes que vienen por defecto. Más información de como instalar MySQL [acá](https://dev.mysql.com/doc/refman/5.7/en/osx-installation-pkg.html).
+
+![](https://cdn-images-1.medium.com/max/1600/1*CJ9uaeA3hAXH1kMbTEQXfA.png)
+
+2\. Al final de la instalación se nos proveerá credenciales para la cuenta de tipo `root`. Algo a tener en cuenta es que MySQL expira esta contraseña rápido por cuestiones de seguridad, por lo que vamos a tener que cambiarla ni bien se nos es dada. Más información en este [link](https://dev.mysql.com/doc/mysql-getting-started/en/#mysql-getting-started-installing).
+
+3\. Instalamos la aplicación [SequelPro](https://www.sequelpro.com/), descargando el paquete en este [link](https://sequelpro.com/download#auto-start). Esta aplicación nos servirá para interactuar y configurar nuestra base de datos. En ella ingresamos nuestras credenciales de tipo root para poder comenzar a operar.
+
+4\. Creamos una base de datos nueva yendo al menú `Bases de datos -> Añadir base de datos...`. Ponemos un nombre como `simplertapp` y le damos a Añadir.
+
+![](https://cdn-images-1.medium.com/max/1600/1*5NSI6KH1HTuY9VR2rdYS_Q.png)Creamos una nueva base de datos
+
+5\. Creamos una tabla yendo al botón de `+` abajo a la izquierda. Ponemos un nombre como `tweet_request` y le damos a Añadir.
+
+![](https://cdn-images-1.medium.com/max/1600/1*etc7PBVBruuBWZy3VlwERA.png)Creamos una nueva tabla
+
+6\. Creamos los campos de la tabla tocando el botón `+` en la vista de campos, el mismo se encuentra arriba de donde dice `ÍNDICES`. Por defecto se creará con el tipo `INT`. Le pondremos de nombre `id`, ya que será el identificador de los `tweet_request` de los usuarios.
+
+Siguiendo los pasos ya mencionados, creamos las siguientes tablas con sus respectivos campos:
+
+![](https://cdn-images-1.medium.com/max/1600/1*nP86BdJZTe9yPUH2ToFo8Q.png)![](https://cdn-images-1.medium.com/max/1600/1*5B2jyt_XXqxP9phuLZ8PKg.png)
+
+Es importante setear el tipo a `VARCHAR` y la longitud de `device_token` y `hashtags` a un valor más alto para poder usar estos campos.
+
+Habiendo creado las tablas, ya tenemos la base de datos debidamente configurada para poder realizar consultas a ella.
+
+### Uso de Node.js para consulta, update y eliminación
+
+1.  Instalamos el paquete de MySQL haciendo `npm install mysql --save` a través de la terminal.
+2.  Creamos un script llamando `mysql_example.js` con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/44fcdbecee5421e2f0564f00f5e03501?postId=d4fa9309997a" data-media-id="44fcdbecee5421e2f0564f00f5e03501" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Primero, cargamos la biblioteca para las variables de entorno e instanciamos la requerida para trabajar con MySQL.
+
+Luego, creamos la conexión a la base de datos, seteando los valores necesarios:
+
+*   `host`: Es la dirección en la cual esta hosteada nuestra DB. Por el momento tendrá el valor de `127.0.0.1`
+*   `user`: Es nuestro nombre de usuario. En este caso sería `root`.
+*   `password`: Es la contraseña que seteamos anteriormente para usar SequelPro
+*   `database`: Es el nombre de la base de datos. En nuestro caso va a ser `simplertapp`.
+
+Para setear estos valores, yo creé un archivo `.env` para guardar estos valores de forma más segura. Más información [acá](https://www.npmjs.com/package/node-env-file).
+
+Por último, realizamos la siguiente consulta SQL a la base de datos:
+
+<pre name="2fd3" id="2fd3" class="graf graf--pre graf-after--p">INSERT INTO tweet_request (device_token, hashtags) VALUES (‘ExampleDeviceToken’, ‘#Example #Hashtags’)</pre>
+
+La cual insertará los valores `ExampleDeviceToken` y `"#Example #Hashtags"` como valores de un primer registro. El campo `id` no es necesario especificarlo ya que es autoincremental.
+
+Si todo salió bien, el script finalizará, en caso contrario nos mostrará en consola el error encontrado.
+
+3\. Ejecutamos el script haciendo `node mysql_example.js` en la terminal.
+
+![](https://cdn-images-1.medium.com/max/1600/1*2KBIS6UzChUaGXZvkg4NsA.png)
+
+Para comprobar que el campo se insertó correctamente vamos a SequelPro, seleccionamos la tabla `tweet_request` y en la pestaña Contenido vemos el registro insertado:
+
+![](https://cdn-images-1.medium.com/max/1600/1*AvR__qJtgUM-Ei8mBViXLg.png)
+
+Con esto creamos nuestro primer script en Node.js que permite insertar registros en una base de datos MySQL.
+
+Pueden encontrar el código del script en [https://github.com/fedejordan/SimpleRTAppAPI,](https://github.com/fedejordan/SimpleRTAppAPI) con el tag `mysql_example`. Es importante que configuren en el archivo `.env` las propiedades correspondientes para la conexión con la base de datos.
+
+### Uso de MySQL en SimpleRTAppApi
+
+Como vimos en el [post de creación de la API REST](https://medium.com/@federicojordn/simplertapp-estructura-b%C3%A1sica-de-una-api-rest-en-node-js-64b4c413c85c), los datos los estabamos consultando y manipulando en memoria. La idea es poder guardar toda esa información en una base de datos, para que pueda ser debidamente consultada y manipulada mediante nuestra API hecha en Node.js.
+
+Repasando los endpoints disponibles en nuestra API, vamos a necesitar entonces las siguientes funcionalidades:
+
+*   Consultar registros `tweet_request` mediante su `id`.
+*   Eliminar registros `tweet_request` mediante su `id`.
+*   Insertar registros `tweet_request` especificando su `device_token` y su `hashtags`.
+*   Insertar registros `posted_tweet` especificando su `tweet_request_id` y su `tweet_id`.
+
+Para ello vamos a crear un archivo de conexión con la BD llamado `databaseHelper.js` donde se realizará la conexión principal con la base de datos y la consulta indicada mediante un parámetro `sqlQuery`.
+
+<iframe width="700" height="250" src="/media/0f5024720d6706d0f0aa58f74c405336?postId=d4fa9309997a" data-media-id="0f5024720d6706d0f0aa58f74c405336" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Nota: Por própositos de simpleza, se creará una conexión a la BD por cada request recibido. Esto en realidad **NO ES PERFORMANTE**, ya que se debería manejar mediante un pool de conexiones, pero no se abarcará el tema en este artículo. Más información sobre pool de conexiones [acá](http://www.madhur.co.in/blog/2016/09/05/nodejs-connection-pooling.html).
+
+Seguimos con la creación de un archivo `tweetRequestDatabase.js` en la carpeta `api/database` con el siguiente contenido:
+
+<iframe width="700" height="250" src="/media/aeb62da25a1cb001f9b2f9a400a44251?postId=d4fa9309997a" data-media-id="aeb62da25a1cb001f9b2f9a400a44251" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En el mismo obtenemos la referencia al `databaseHelper`, y mediante los parámetros mandados a la función `insertTweetRequest` creamos la debida consulta SQL y la ejecutamos.
+
+Por último, cambiamos nuestro `tweetRequestController.js` con lo siguiente:
+
+<iframe width="700" height="250" src="/media/135d00bffd18a664f714ccf24d72d9bd?postId=d4fa9309997a" data-media-id="135d00bffd18a664f714ccf24d72d9bd" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Como cambios a lo que ya teníamos, obtenemos la refencia a `tweetRequestDatabase` e insertamos el objeto `tweetRequest` construido en la base de datos mediante `tweetRequestDatabase.insertTweetRequest(tweetRequest)`.
+
+Iniciamos el server en la terminal mediante `node server.js` y abrimos el Postman para realizar `POST /tweetRequest`:
+
+![](https://cdn-images-1.medium.com/max/1600/1*tzhr_nRvGsWkZmRcxwsG-A.png)
+
+Debido a que seguimos manteniendo el array en memoria, seguimos teniendo el `id` 10.
+
+Vamos a SequelPro a ver si se insertó nuestro registro:
+
+![](https://cdn-images-1.medium.com/max/1600/1*muG7NUbql68ZkDMCJZ7q2g.png)
+
+Debimos cuantos valores insertamos previamente, el campo `id` puede ser diferente. En mi caso borré el anterior que habíamos insertado con el script `mysql_example.js` y reinicié el `id` autoincremental. Para hacerlo basta con ejecutar el siguiente comando en SequelPro, en la pestaña Consulta:
+
+```
+ALTER TABLE tweet_request AUTO_INCREMENT = 1
+```
+
+Con esto, nuestra API ya es capaz de insertar valores en la base de datos ;)
+
+#### Ejemplo completo
+
+Con lo visto anteriormente, podemos terminar los otros endpoints de la api. Debería quedarnos algo parecido a lo siguiente:
+
+<iframe width="700" height="250" src="/media/2e3717ce65bd0ebefb5c4ba8928d961e?postId=d4fa9309997a" data-media-id="2e3717ce65bd0ebefb5c4ba8928d961e" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En `tweetRequestDatabase.js` agregamos las funciones para hacer el `SELECT` y el `DELETE` correspondientes, mediante un determinado `tweetRequestId`. Agregamos el `callback` para saber cuando se terminó la operación de lectura o escritura.
+
+<iframe width="700" height="250" src="/media/65b142d095cbdadf91c16a317c7e4632?postId=d4fa9309997a" data-media-id="65b142d095cbdadf91c16a317c7e4632" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+En `tweetRequestController.js` borramos toda la lógica relacionada con el array en memoria, y hacemos uso del `callback` que nos da `tweetRequestDatabase` para mandar el status `200` a la respuesta, y finalizarla.
+
+<iframe width="700" height="250" src="/media/6e0c0ac4d1bb2b115dcbb262ed47dba4?postId=d4fa9309997a" data-media-id="6e0c0ac4d1bb2b115dcbb262ed47dba4" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Agregamos el correspondiente `postedTweetDatabase.js` para enviar el `INSERT` con los datos del `postedTweet` a la base de datos.
+
+<iframe width="700" height="250" src="/media/6dfa097d4e3285ba70bf216fda795435?postId=d4fa9309997a" data-media-id="6dfa097d4e3285ba70bf216fda795435" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>
+
+Por último, también actualizamos `postedTweetController.js` para poder usar `postedTweetDatabase` y si todo salió bien enviar el correspondiente status `200`.
+
+Con esto finalizamos todos los requisitos para que nuestra API REST consulte, elimine e inserte registros en una base de datos MySQL :)
+
+#### Algunas consideraciones
+
+Debido a la simplicidad con la que se quiso explicar el tema, no se tuvieron en cuenta diferentes cuestiones:
+
+*   No es performante crear una conexión por cada request dado. Esto es inescalable, y requiere crear un pool de consultas. Voy a tratar este asunto en un artículo más adelante. [Más información acá](http://www.madhur.co.in/blog/2016/09/05/nodejs-connection-pooling.html).
+*   No se manejan estados de error, por cada fallo que surja (por ejemplo, querer eliminar un `tweetRequest` con un `tweetRequestId` no encontrado) no se envían status de error. Esto es fundamental si queremos comunicar al cliente que falló, y poder manejar ese error apropiadamente. Ver [manejo de errores](http://expressjs.com/es/4x/api.html).
+
+### Conclusiones
+
+Instalamos MySQL. Vimos como configurar una base de datos en entorno local. Lo aprendimos de manera sencilla, simplemente usando SequelPro, con el cual creamos tablas y campos de diferentes tipos.
+
+Después, vimos como interactuar con una base de datos MySQL desde Node.js. Vimos como hacer operaciones de consulta, inserción y eliminación de registros. Finalmente, integramos estas operaciones a la API REST que habiamos construido en [el artículo anterior](https://medium.com/@federicojordn/simplertapp-estructura-b%C3%A1sica-de-una-api-rest-en-node-js-64b4c413c85c)
+
+Si bien no todos los programadores usamos Node.js y MySQL en nuestro día a día de trabajo, considero que mínimamente seguir estos pasos nos dará una noción básica de como esta construida una API REST, y podremos tener un entendimiento mayor a nivel completo del sistema.
+
+En el próximo artículo vamos a configurar nuestra app iOS para poder consumir todas estas APIs.
+
+¡Gracias por leer el artículo!
+
+#### Fuentes
+
+*   [http://culturacion.com/que-es-y-para-que-sirve-mysql/](http://culturacion.com/que-es-y-para-que-sirve-mysql/)
+*   [https://www.datarealm.com/blog/five-advantages-disadvantages-of-mysql/](https://www.datarealm.com/blog/five-advantages-disadvantages-of-mysql/)
+*   [https://blog.capterra.com/3-standout-mysql-alternatives/](https://blog.capterra.com/3-standout-mysql-alternatives/)
+*   [https://www.slant.co/options/4216/alternatives/~mysql-alternatives](https://www.slant.co/options/4216/alternatives/~mysql-alternatives)
+*   [https://dev.mysql.com/doc/refman/5.7/en/osx-installation-pkg.html](https://dev.mysql.com/doc/refman/5.7/en/osx-installation-pkg.html)
+*   [https://dev.mysql.com/doc/mysql-getting-started/en/#mysql-getting-started-installing](https://dev.mysql.com/doc/mysql-getting-started/en/#mysql-getting-started-installing)
+*   [https://www.w3schools.com/nodejs/nodejs_mysql_insert.asp](https://www.w3schools.com/nodejs/nodejs_mysql_insert.asp)
+*   [https://www.npmjs.com/package/node-env-file](https://www.npmjs.com/package/node-env-file)

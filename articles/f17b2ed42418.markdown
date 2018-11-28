@@ -1,0 +1,108 @@
+* * *
+
+# Cómo usar Single Responsibility Principle en Swift
+
+![](https://cdn-images-1.medium.com/max/1600/1*kSM1k05nq77ron-DjBX_FA.png)
+
+A veces, cuando estamos aprendiendo a programar, algo que nos cuesta entender un poco es el concepto de responsabilidad de clase. Es por eso que nuestros primeros proyectos se vuelven inmantenibles, con clases de muchas líneas de código y, mucho más crítico, infinita cantidad de responsabilidades.
+
+Una buena forma de saber realmente cual es la responsabilidad de cada clase es pensar en la **escabilidad**.
+
+Vamos a ver un ejemplo de cómo pensar de esta forma. Pero antes, quiero introducir un poco de teoría y explicar porque es importante este concepto en el diseño de software.
+
+### Introducción a Single Responsibility Principle
+
+La idea de que cada clase tenga una única responsabilidad en un proyecto de software, y esa responsabilidad a su vez sea encapsulada en esa única clase tiene un nombre: [Single Responsibility Principle](https://en.wikipedia.org/wiki/Single_responsibility_principle)
+
+Este es uno de los 5 principios fundamentales de diseño de software [SOLID,](https://en.wikipedia.org/wiki/SOLID_%28object-oriented_design%29) donde, en programación orientada a objetos, buscan sentar una base para obtener un software lo más entendible, flexible y mantenible. Estos principios son:
+
+*   _Single responsibility principle_
+*   _Open/closed principle_
+*   _Liskov substitution principle_
+*   _Interface segregation principle_
+*   _Dependency inversion principle_
+
+El autor de estos principios, [Robert C. Martin](https://es.wikipedia.org/wiki/Robert_C._Martin) (autor de uno de los libros más importantes de arquitectura de software, [Clean Code](http://blog.cleancoder.com/)) define el principio de SRP como _“Una clase debería tener sólo una razón para cambiar”_, por lo que concluye que una responsabilidad es una razón para cambiar.
+
+Por ejemplo, consideremos un módulo que procesa e imprime un reporte. Imaginemos, entonces, que este módulo podría ser modificado por dos razones. Primero, el contenido del reporte (los datos) podría cambiar. Segundo, el formato del reporte (la presentación) también podría hacerlo. Estas dos razones son, por diferentes causas, una sustancial y la otra cosmética.
+
+El principio define que estos dos aspectos son en realidad dos responsabilidades separadas, y deberían estar en diferentes clases o módulos. Sería un mal diseño acoplar dos cosas que pueden cambiar por diferentes razones en diferentes tiempos.
+
+La razón por la cual es importante mantener una clase en una simple responsabilidad es lo que hace a la clase más robusta. Continuando con el ejemplo anterior, si hay un cambio al proceso de generación de reporte, hay un gran riesgo de que el código de impresión del reporte se altere si está en la misma clase.
+
+### Por qué es importante definir correctamente la responsabildad por clase
+
+Si definimos nuestras clases sabiendo cuál es la responsabilidad cumple en nuestro projecto podemos:
+
+*   Entender más fácilmente que funcionalidad realiza cada parte del código.
+*   Modificar lógica existente mucho más rapido y prolijo.
+*   Encontrar con menos problemas el origen de bugs o comportamientos no deseados.
+*   Abstraer lógica en diferentes clases o módulos.
+*   Separar sin mayores problemas implementaciones de modo que puedan ser completamente reemplazadas posteriormente.
+*   Definir tests unitarios por clase o módulo más eficientemente, pudiendo testear una pequeña parte del código y no más de lo que realmente queramos testear.
+
+### Pensando en la escabilidad para definir responsabilidades
+
+Como se dijo anteriormente, se puede pensar en la escabilidad de una clase para definir responsabilidades. Esto es, simplemente, pensar si en nuestro proyecto en algún momento se modifican los requerimientos, mirar en nuestra arquitectura cómo se aplicarían esas modificaciones.
+
+Si vemos que para un simple cambio de vista tenemos que modificar o reacomodar lógica de negocio, no estamos definiendo correctamente las responsabilidades en nuestro proyecto, por ejemplo.
+
+Vamos a ver un ejemplo concreto en Swift.
+
+### Ejemplo en Swift
+
+Supongamos que tengo una aplicación que muestra una lista de items de supermercado. Por ahora sólo tengo un `ItemsViewController` que se encarga de toda la lógica de ese flujo, tanto la obtención de los items, como de la presentación de los mismos. Además, se imprime un log cuando se selecciona un ítem.
+
+<iframe width="700" height="250" src="/media/e9dc728fc5c12cd532f072df8cec2e9b?postId=f17b2ed42418" data-media-id="e9dc728fc5c12cd532f072df8cec2e9b" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>ItemsViewController con lógica de vista y datos![](https://cdn-images-1.medium.com/max/1600/1*1Dq-bIVc5p8z3t_jLXb5Sw.png)ItemsViewController: Una simple lista de items
+
+Pueden ver el código del proyecto en [https://github.com/fedejordan/SRPExample,](https://github.com/fedejordan/SRPExample) branch `master`.
+
+Para ello, `ItemsViewController` utiliza un `UITableView` para mostrar los items, en forma de lista. Tambien se utiliza una subclase de `UITableViewCell` llamada `ItemTableViewCell` para mostrar cada elemento.
+
+El problema radica en si queremos cambiar la vista, por ejemplo, por una `UICollectionView`. ¿Cuál es el problema en este caso?
+
+**El código de la vista de la lista está muy ligado a la lógica de obtención de los items.** Es muy probable que modifiquemos la clase que se encarga de devolver los objetos de tipo `Item` tambien.
+
+En específico, el problema está en estas líneas:
+
+<pre name="961a" id="961a" class="graf graf--pre graf-after--p">let item = items[indexPath.row]</pre>
+
+¿Por qué el problema está aca?
+
+Porque estamos usando el índice del `UITableView` para acceder al item específico en el array. Deberíamos abstraernos de alguna forma de que la vista es un `UITableView`.
+
+Para evitar ello, **refactorizamos** el `ItemsViewController` y movemos la lógica de obtención de datos a otra clase llamada `ItemsInteractor`.
+
+<iframe width="700" height="250" src="/media/186346723ee97797b6cdc4dfa8df09c5?postId=f17b2ed42418" data-media-id="186346723ee97797b6cdc4dfa8df09c5" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>ItemsViewController sin lógica de obtención de datos<iframe width="700" height="250" src="/media/8a35ded502e6f138126a091aaaf224a7?postId=f17b2ed42418" data-media-id="8a35ded502e6f138126a091aaaf224a7" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>ItemsInteractor para abstraer lógica de datos
+
+_El término Interactor tiene su origen en la arquitectura_ [_VIPER_](https://www.objc.io/issues/13-architecture/viper/)_. Cómo lo dice en su definición, un Interactor contiene la lógica de negocio para manipular modelos de objetos (Entidades) para realizar una tarea en específico. En este caso, nuestro_ `_ItemsInteractor_` _se encarga de devolver información acerca de algún o algunos objetos de tipo_ `_Item_`_._
+
+Esta versión del código la pueden obtener en [https://github.com/fedejordan/SRPExample](https://github.com/fedejordan/SRPExample) haciendo un `check out` al branch `interactor_refactor`.
+
+Cómo podemos ver, el `ItemsViewController` no conoce nada acerca del modelo de datos. Simplemente pide al Interactor lo que necesita para poder renderizar la pantalla. En un futuro podríamos cambiar el tipo de dato `Item` por otra cosa, que solo haríamos cambios en el `ItemsInteractor`, este devolvería la misma información y finalmente `ItemsViewController` puede seguir funcionando como siempre.
+
+Entonces, de esta forma, si queremos cambiar sólo el layout de nuestra aplicación, simplemente cambiamos `ItemsViewController` para que use un `UICollectionView`:
+
+<iframe width="700" height="250" src="/media/567bb687f01828bc551fb9aad3aec97e?postId=f17b2ed42418" data-media-id="567bb687f01828bc551fb9aad3aec97e" data-thumbnail="https://i.embed.ly/1/image?url=https%3A%2F%2Favatars0.githubusercontent.com%2Fu%2F5657224%3Fs%3D400%26v%3D4&amp;key=a19fcc184b9711e1b4764040d3dc5c07" allowfullscreen="" frameborder="0"></iframe>ItemsViewController con UICollectionView![](https://cdn-images-1.medium.com/max/1600/1*NexoB1dLm11FnxD04W3l6Q.png)Screenshot de ItemsViewController usando un UICollectionView
+
+Pueden ver el resultado final en [https://github.com/fedejordan/SRPExample](https://github.com/fedejordan/SRPExample) en el branch `collection_view_refactor`.
+
+¿Cambiamos algo en el `ItemsInteractor`? Para nada. Simplemente cambiamos la presentación de los mismos.
+
+Esto a su vez, nos permite testear de una forma mas modularizada. Podemos empezar a [testear la vista](https://medium.com/@federicojordn/c%C3%B3mo-hacer-ui-testing-en-ios-con-fbsnapshottestcase-12e9641df97) primero y después la lógica de negocio. Claro que, para hacer tests correctamente tenemos que hacer algo mas injectable, cosa que podamos inicializar los modulos con clases mockeadas y dependamos de interfaces o `protocols` en Swift. Básicamente esto se traduce en, por ejemplo, no instanciar el `ItemsInteractor` en `ItemsViewController`, ya que es una dependencia y debe abstraerse de su implementación. Pero ello ya excede del propósito del artículo.
+
+### Conclusión
+
+A simple vista parece que no hicimos mucho trabajo. Simplemente separamos la lógica de la vista de la de obtención de datos. ¿Nos sirvió realmente? En este ejemplo puede que no sea muy útil hacerlo, es más, puede que simplemente se necesite esa lista y nada más.
+
+Pero cuando tenemos UIs mucho más complicadas, adaptar la misma vista a diferentes data sources, o compartir el data source entre diferentes flujos, aplicar este concepto nos permite reutilizar el código y escalar ante cambios que haya tanto en la vista como en la lógica de nuestro proyecto. Y para poder lograr llegar a eso, es importante entender que responsabilidad debe tener cada clase que lo conforma.
+
+Me gustaría agregar que, en mi opinión, este concepto es condición necesaria para tener un buen código. De hecho, en cualquier código que estuviese mal escrito, siempre se va a poder encontrar alguna clase con más de una responsabilidad. Es por eso que vimos la importancia del concepto de Single Responsibility Principle.
+
+Nuestro ejemplo en Swift nos permitió ver por qué es tan importante definir correctamente las responsabilidades. Cómo una correcta arquitectura modularizada puede incidir significativamente en la escabilidad de nuestro proyecto, simplemente por querer hacer un cambio de layout en una pantalla.
+
+A modo de resumen me gustaría concluir que, mirando siempre en la **escabilidad** de nuestro proyecto, podemos ver si estamos definiendo correctamente las responsabilidades de nuestras clases o módulos.
+
+¡Muchas gracias por leer el post!
+
+Espero que les haya gustado. Cualquier agradecimiento o sugerencia de los temas que traté pueden hacerlo en los comentarios, o también comunicándose a mi mail: fedejordan99@gmail.com
