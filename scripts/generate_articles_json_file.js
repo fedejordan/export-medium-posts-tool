@@ -1,5 +1,6 @@
 const responseJSON = require('../output/response.json');
 const fs = require('fs');
+var moment = require('moment');
 
 let mediumURL = 'https://medium.com/';
 let profileId = 'federicojordn';
@@ -14,11 +15,14 @@ const articles = articlesIds.map((articleId) => {
 	const fullUrl = `${mediumURL}@${profileId}/${uniqueSlug}`;
 	const title = articleDict.title;
 	const description = articleDict.content.subtitle;
+	const timestamp = articleDict.firstPublishedAt;
+	const date = moment(timestamp).format("MMM DD");
 	return {
-		date: "Feb 15",
-		title: title,
+		date,
+		title,
 		url: fullUrl,
-		description: description
+		description,
+		timestamp
 	}
 });
 

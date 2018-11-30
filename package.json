@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "medium-to-markdown": "0.0.2",
+    "moment": "^2.22.2",
     "node-html-parser": "^1.1.11",
     "request": "^2.88.0",
     "request-promise": "^4.2.2"
