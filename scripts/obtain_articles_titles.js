@@ -6,7 +6,7 @@ let profileId = 'federicojordn';
 
 let profileURL = `${mediumURL}@${profileId}`;
 
-// console.log(profileURL);
+console.log(profileURL);
 
 request(profileURL).then((response) => {
 	// console.log(response);
